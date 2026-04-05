@@ -3,6 +3,7 @@ name: Build Multi-Version
 on:
   push:
     branches: [ "main" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -40,9 +41,33 @@ jobs:
           -Pminecraft_version=${{ matrix.minecraft }} \
           -Pyarn_mappings=${{ matrix.minecraft }}+build.$YARN_BUILD \
           -Pjava_version=$JAVA_VER
-        
+
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: MikuTester-${{ matrix.minecraft }}
         path: build/libs/mikutester-*.jar
+        
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-jars
+          pattern: MikuTester-*
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: all-jars/*.jar
+          body: |
+            Automated build for multiple Minecraft versions.
+            Range: 1.21.4 to 26.1
+          draft: false
+          prerelease: false
