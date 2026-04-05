@@ -26,7 +26,7 @@ dependencies {
     
     val mcVersion = properties["minecraft_version"] as String
     if (mcVersion.contains("26")) {
-        mappings(loom.officialMojangMappings())
+        // No mappings needed for 26.1+ (unobfuscated)
     } else {
         mappings("net.fabricmc:yarn:${properties["yarn_mappings"] as String}:v2")
     }
