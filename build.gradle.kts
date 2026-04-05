@@ -28,7 +28,10 @@ dependencies {
     // Minecraft
     minecraft("com.mojang:minecraft:$mcVersion")
     
-    if (!isUnobfuscated) {
+    // Mappings
+    if (project.hasProperty("use_mojang_mappings")) {
+        mappings(loom.officialMojangMappings())
+    } else {
         mappings("net.fabricmc:yarn:${properties["yarn_mappings"] as String}:v2")
     }
     
