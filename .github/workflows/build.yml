@@ -12,13 +12,16 @@ jobs:
   # ════════════════════════════════════════════════════════════════════════════
   # JOB 1 – STABLE  (Minecraft 1.21.x · Yarn Mappings · Java 21)
   # ════════════════════════════════════════════════════════════════════════════
-  build-stable:
+  build:
     strategy:
       fail-fast: false
       matrix:
         include:
           - { minecraft: "1.21.4",  java: "21", yarn_build: "3" }
           - { minecraft: "1.21.5",  java: "21", yarn_build: "1" }
+          - { minecraft: "1.21.6",  java: "21", yarn_build: "1" }
+          - { minecraft: "1.21.7",  java: "21", yarn_build: "7" }
+          - { minecraft: "1.21.8",  java: "21", yarn_build: "1" }
           - { minecraft: "1.21.10", java: "21", yarn_build: "3" }
           - { minecraft: "1.21.11", java: "21", yarn_build: "4" }
 
@@ -51,41 +54,8 @@ jobs:
           path: build/libs/mikutester-*.jar
           if-no-files-found: error
 
-  # ════════════════════════════════════════════════════════════════════════════
-  # JOB 2 – EXPERIMENTAL  (Minecraft 26.1 · Mojang Official Mappings · Java 25)
-  # ════════════════════════════════════════════════════════════════════════════
-  build-experimental:
-    continue-on-error: true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 25 (Temurin)
-        uses: actions/setup-java@v4
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-          cache: 'gradle'
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Build – MC 26.1 / Java 25 / Mojang Official Mappings
-        run: |
-          ./gradlew build \
-            -Pminecraft_version=26.1 \
-            -Puse_mojang_mappings=true \
-            -Pjava_version=25
-
-      - name: Upload artifact (experimental)
-        uses: actions/upload-artifact@v4
-        with:
-          name: MikuTester-mc26.1-java25-experimental
-          path: build/libs/mikutester-*.jar
-
   release:
-    needs: [build-stable, build-experimental]
+    needs: build
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
@@ -103,8 +73,6 @@ jobs:
         with:
           files: all-jars/*.jar
           body: |
-            Automated build for multiple Minecraft versions.
-            Stable: 1.21.4 to 1.21.11
-            Experimental: 26.1
+            Automated build for Minecraft 1.21.x versions.
           draft: false
           prerelease: false

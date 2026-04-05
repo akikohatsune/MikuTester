@@ -22,7 +22,6 @@ repositories {
 
 dependencies {
     val mcVersion = properties["minecraft_version"] as String
-    val isUnobfuscated = mcVersion.contains("26")
     val loaderVersion = if (project.hasProperty("loader_version")) properties["loader_version"] as String else "0.17.3"
 
     // Minecraft
@@ -36,33 +35,13 @@ dependencies {
     }
     
     // Loader
-    if (isUnobfuscated) {
-        implementation("net.fabricmc:fabric-loader:$loaderVersion")
-    } else {
-        modImplementation("net.fabricmc:fabric-loader:$loaderVersion")
-    }
+    modImplementation("net.fabricmc:fabric-loader:$loaderVersion")
 
     // Meteor
-    if (isUnobfuscated) {
-        implementation("meteordevelopment:meteor-client:${mcVersion}-SNAPSHOT")
-    } else {
-        modImplementation("meteordevelopment:meteor-client:${mcVersion}-SNAPSHOT")
-    }
+    modImplementation("meteordevelopment:meteor-client:${mcVersion}-SNAPSHOT")
 }
 
 tasks {
-    val mcVersion = project.property("minecraft_version") as String
-    val isUnobfuscated = mcVersion.contains("26")
-
-    if (isUnobfuscated) {
-        // Disable remapping for unobfuscated versions
-        named<net.fabricmc.loom.task.RemapJarTask>("remapJar") {
-            enabled = false
-        }
-        named<net.fabricmc.loom.task.RemapSourcesJarTask>("remapSourcesJar") {
-            enabled = false
-        }
-    }
     processResources {
         val propertyMap = mapOf(
             "version" to project.version,
