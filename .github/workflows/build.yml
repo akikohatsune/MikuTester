@@ -3,7 +3,7 @@ name: Build Multi-Version
 on:
   push:
     branches: [ "main" ]
-    tags: [ "v*" ]
+    tags: [ "v*", "V*" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
