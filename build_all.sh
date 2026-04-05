@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # List of versions to build
-VERSIONS=("1.21.4", "1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.10", "1.21.11", "26.1")
+VERSIONS=("1.21.4" "1.21.5" "1.21.6" "1.21.7" "1.21.8" "1.21.10" "1.21.11" "26.1")
 
 # Ensure the output directory exists
 mkdir -p build/all_versions
@@ -11,22 +11,25 @@ for MC_VERSION in "${VERSIONS[@]}"; do
     echo "Building for Minecraft $MC_VERSION..."
     echo "=========================================="
 
-    # Update gradle.properties
-    sed -i "s/^minecraft_version=.*/minecraft_version=$MC_VERSION/" gradle.properties
+    # Handle yarn mappings
+    YARN_BUILD="1"
+    if [[ "$MC_VERSION" == "1.21.4" ]]; then YARN_BUILD="3"; fi
     
-    # Handle yarn mappings (this might need adjustment per version if build numbers vary)
+    # Determine Java version
+    JAVA_VER="21"
     if [[ "$MC_VERSION" == "26.1" ]]; then
-        sed -i "s/^yarn_mappings=.*/yarn_mappings=$MC_VERSION+build.1/" gradle.properties
-    else
-        sed -i "s/^yarn_mappings=.*/yarn_mappings=$MC_VERSION+build.1/" gradle.properties
+        JAVA_VER="25"
     fi
 
     # Run build
-    ./gradlew clean build
+    ./gradlew clean build \
+      -Pminecraft_version=$MC_VERSION \
+      -Pyarn_mappings=$MC_VERSION+build.$YARN_BUILD \
+      -Pjava_version=$JAVA_VER
 
     if [ $? -eq 0 ]; then
         echo "Build successful for $MC_VERSION!"
-        # Copy the jar to a separate folder to avoid it being overwritten
+        # Copy the jar to a separate folder
         cp build/libs/mikutester-*.jar build/all_versions/mikutester-$MC_VERSION.jar
     else
         echo "Build FAILED for $MC_VERSION. Skipping..."

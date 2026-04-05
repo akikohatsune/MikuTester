@@ -55,13 +55,15 @@ tasks {
     }
 
     java {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        val javaVersion = if (project.hasProperty("java_version")) JavaVersion.toVersion(project.property("java_version")!!) else JavaVersion.VERSION_21
+        sourceCompatibility = javaVersion
+        targetCompatibility = javaVersion
     }
 
     withType<JavaCompile> {
         options.encoding = "UTF-8"
-        options.release = 21
+        val javaRelease = if (project.hasProperty("java_version")) (project.property("java_version") as String).toInt() else 21
+        options.release.set(javaRelease)
         options.compilerArgs.add("-Xlint:deprecation")
         options.compilerArgs.add("-Xlint:unchecked")
     }
@@ -69,6 +71,7 @@ tasks {
 }
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        val javaVersion = if (project.hasProperty("java_version")) JavaLanguageVersion.of(project.property("java_version") as String) else JavaLanguageVersion.of(21)
+        languageVersion.set(javaVersion)
     }
 }

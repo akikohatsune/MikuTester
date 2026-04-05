@@ -17,10 +17,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up JDK 21
+    - name: Set up JDK
       uses: actions/setup-java@v4
       with:
-        java-version: '21'
+        java-version: ${{ matrix.minecraft == '26.1' && '25' || '21' }}
         distribution: 'temurin'
         cache: 'gradle'
         
@@ -29,13 +29,17 @@ jobs:
       
     - name: Build with Gradle
       run: |
-        # Determine yarn mapping build number based on version
+        # Determine yarn mapping build number and java version
         YARN_BUILD="1"
         if [[ "${{ matrix.minecraft }}" == "1.21.4" ]]; then YARN_BUILD="3"; fi
         
+        JAVA_VER="21"
+        if [[ "${{ matrix.minecraft }}" == "26.1" ]]; then JAVA_VER="25"; fi
+        
         ./gradlew build \
           -Pminecraft_version=${{ matrix.minecraft }} \
-          -Pyarn_mappings=${{ matrix.minecraft }}+build.$YARN_BUILD
+          -Pyarn_mappings=${{ matrix.minecraft }}+build.$YARN_BUILD \
+          -Pjava_version=$JAVA_VER
         
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
