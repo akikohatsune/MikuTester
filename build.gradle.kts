@@ -21,23 +21,44 @@ repositories {
 }
 
 dependencies {
-    // Fabric
-    minecraft("com.mojang:minecraft:${properties["minecraft_version"] as String}")
-    
     val mcVersion = properties["minecraft_version"] as String
-    if (mcVersion.contains("26")) {
-        // No mappings needed for 26.1+ (unobfuscated)
-    } else {
+    val isUnobfuscated = mcVersion.contains("26")
+
+    // Minecraft
+    minecraft("com.mojang:minecraft:$mcVersion")
+    
+    if (!isUnobfuscated) {
         mappings("net.fabricmc:yarn:${properties["yarn_mappings"] as String}:v2")
     }
     
-    modImplementation("net.fabricmc:fabric-loader:${properties["loader_version"] as String}")
+    // Loader
+    if (isUnobfuscated) {
+        implementation("net.fabricmc:fabric-loader:${properties["loader_version"] as String}")
+    } else {
+        modImplementation("net.fabricmc:fabric-loader:${properties["loader_version"] as String}")
+    }
 
     // Meteor
-    modImplementation("meteordevelopment:meteor-client:${properties["minecraft_version"] as String}-SNAPSHOT")
+    if (isUnobfuscated) {
+        implementation("meteordevelopment:meteor-client:${mcVersion}-SNAPSHOT")
+    } else {
+        modImplementation("meteordevelopment:meteor-client:${mcVersion}-SNAPSHOT")
+    }
 }
 
 tasks {
+    val mcVersion = project.property("minecraft_version") as String
+    val isUnobfuscated = mcVersion.contains("26")
+
+    if (isUnobfuscated) {
+        // Disable remapping for unobfuscated versions
+        named<net.fabricmc.loom.task.RemapJarTask>("remapJar") {
+            enabled = false
+        }
+        named<net.fabricmc.loom.task.RemapSourcesJarTask>("remapSourcesJar") {
+            enabled = false
+        }
+    }
     processResources {
         val propertyMap = mapOf(
             "version" to project.version,
