@@ -61,26 +61,26 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21 (Temurin)
+      - name: Set up JDK 25 (Temurin)
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'temurin'
           cache: 'gradle'
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build – MC 26.1 / Java 21 / Mojang Official Mappings
+      - name: Build – MC 26.1 / Java 25 / Mojang Official Mappings
         run: |
           ./gradlew build \
             -Pminecraft_version=26.1 \
-            -Pjava_version=21
+            -Pjava_version=25
 
       - name: Upload artifact (experimental)
         uses: actions/upload-artifact@v4
         with:
-          name: MikuTester-mc26.1-java21-experimental
+          name: MikuTester-mc26.1-java25-experimental
           path: build/libs/mikutester-*.jar
 
   release:
