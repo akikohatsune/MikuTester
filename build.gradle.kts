@@ -23,6 +23,7 @@ repositories {
 dependencies {
     val mcVersion = properties["minecraft_version"] as String
     val isUnobfuscated = mcVersion.contains("26")
+    val loaderVersion = if (project.hasProperty("loader_version")) properties["loader_version"] as String else "0.17.3"
 
     // Minecraft
     minecraft("com.mojang:minecraft:$mcVersion")
@@ -33,9 +34,9 @@ dependencies {
     
     // Loader
     if (isUnobfuscated) {
-        implementation("net.fabricmc:fabric-loader:${properties["loader_version"] as String}")
+        implementation("net.fabricmc:fabric-loader:$loaderVersion")
     } else {
-        modImplementation("net.fabricmc:fabric-loader:${properties["loader_version"] as String}")
+        modImplementation("net.fabricmc:fabric-loader:$loaderVersion")
     }
 
     // Meteor
