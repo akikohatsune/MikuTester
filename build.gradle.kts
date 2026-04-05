@@ -23,7 +23,14 @@ repositories {
 dependencies {
     // Fabric
     minecraft("com.mojang:minecraft:${properties["minecraft_version"] as String}")
-    mappings("net.fabricmc:yarn:${properties["yarn_mappings"] as String}:v2")
+    
+    val mcVersion = properties["minecraft_version"] as String
+    if (mcVersion.startsWith("26")) {
+        mappings(loom.officialMojangMappings())
+    } else {
+        mappings("net.fabricmc:yarn:${properties["yarn_mappings"] as String}:v2")
+    }
+    
     modImplementation("net.fabricmc:fabric-loader:${properties["loader_version"] as String}")
 
     // Meteor
