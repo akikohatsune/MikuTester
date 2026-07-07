@@ -6,13 +6,13 @@ import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.friends.Friends;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import java.util.Random;
 
 public class CrosshairAttack extends Module {
@@ -126,10 +126,10 @@ public class CrosshairAttack extends Module {
 
     @EventHandler
     private void onTick(TickEvent.Pre event) {
-        if (mc.player == null || mc.world == null || mc.interactionManager == null) return;
+        if (mc.player == null || mc.level == null || mc.gameMode == null) return;
 
         if (onlyWhenSword.get()) {
-            if (!mc.player.getMainHandStack().isIn(ItemTags.SWORDS)) return;
+            if (!mc.player.getMainHandItem().is(ItemTags.SWORDS)) return;
         }
 
         if (timer > 0) {
@@ -139,39 +139,39 @@ public class CrosshairAttack extends Module {
 
         // Check attack cooldown
         if (waitCooldown.get()) {
-            float cooldown = mc.player.getAttackCooldownProgress(0f);
+            float cooldown = mc.player.getAttackStrengthScale(0f);
             if (cooldown < cooldownThreshold.get()) return;
         }
 
         // Check crosshair target
-        HitResult hit = mc.crosshairTarget;
+        HitResult hit = mc.hitResult;
         if (hit == null || hit.getType() != HitResult.Type.ENTITY) return;
 
         EntityHitResult entityHit = (EntityHitResult) hit;
-        if (!(entityHit.getEntity() instanceof PlayerEntity target)) return;
+        if (!(entityHit.getEntity() instanceof Player target)) return;
         if (target == mc.player) return;
         if (ignoreFriends.get() && Friends.get().isFriend(target)) return;
 
         // Reach + raycast check
-        Vec3d eyePos  = mc.player.getEyePos();
-        Box targetBox = target.getBoundingBox().expand(0.1);
-        Vec3d lookVec = mc.player.getRotationVec(1.0f);
-        Vec3d endVec  = eyePos.add(lookVec.multiply(reach.get()));
+        Vec3 eyePos  = mc.player.getEyePosition();
+        AABB targetBox = target.getBoundingBox().inflate(0.1);
+        Vec3 lookVec = mc.player.getViewVector(1.0f);
+        Vec3 endVec  = eyePos.add(lookVec.scale(reach.get()));
 
-        if (targetBox.raycast(eyePos, endVec).isEmpty()) return;
+        if (targetBox.clip(eyePos, endVec).isEmpty()) return;
 
-        double dist = eyePos.distanceTo(new Vec3d(target.getX(), target.getEyeY(), target.getZ()));
+        double dist = eyePos.distanceTo(new Vec3(target.getX(), target.getEyeY(), target.getZ()));
         if (dist > reach.get()) return;
 
         // Attack
-        mc.interactionManager.attackEntity(mc.player, target);
+        mc.gameMode.attack(mc.player, target);
         if (swingHand.get()) {
             switch (handMode.get()) {
-                case MainHand -> mc.player.swingHand(Hand.MAIN_HAND);
-                case OffHand  -> mc.player.swingHand(Hand.OFF_HAND);
+                case MainHand -> mc.player.swing(InteractionHand.MAIN_HAND);
+                case OffHand  -> mc.player.swing(InteractionHand.OFF_HAND);
                 case Both -> {
-                    mc.player.swingHand(Hand.MAIN_HAND);
-                    mc.player.swingHand(Hand.OFF_HAND);
+                    mc.player.swing(InteractionHand.MAIN_HAND);
+                    mc.player.swing(InteractionHand.OFF_HAND);
                 }
             }
         }

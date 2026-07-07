@@ -10,9 +10,9 @@ import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ItemStack;
 
 public class MaceSwap extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -183,16 +183,16 @@ public class MaceSwap extends Module {
         if (!weapon.found()) return;
 
         // Check if we're already holding the weapon
-        Item currentItem = mc.player.getMainHandStack().getItem();
-        Item targetItem = mc.player.getInventory().getStack(weapon.slot()).getItem();
+        Item currentItem = mc.player.getMainHandItem().getItem();
+        Item targetItem = mc.player.getInventory().getItem(weapon.slot()).getItem();
         if (currentItem == targetItem) return;
 
         // Store current slot and item if not already stored
         if (previousSlot == -1) {
             for (int i = 0; i < 9; i++) {
-                if (mc.player.getInventory().getStack(i) == mc.player.getMainHandStack()) {
+                if (mc.player.getInventory().getItem(i) == mc.player.getMainHandItem()) {
                     previousSlot = i;
-                    previousItem = mc.player.getMainHandStack().copy();
+                    previousItem = mc.player.getMainHandItem().copy();
                     break;
                 }
             }

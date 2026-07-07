@@ -5,12 +5,12 @@ import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.item.Items;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.CreativeInventoryActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 
 public class BreadSpammer extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -49,24 +49,24 @@ public class BreadSpammer extends Module {
 
     @EventHandler
     private void onTick(TickEvent.Pre event) {
-        if (mc.player == null || mc.world == null) return;
+        if (mc.player == null || mc.level == null) return;
 
         // Check creative mode
-        if (onlyCreative.get() && !mc.player.getAbilities().creativeMode) return;
+        if (onlyCreative.get() && !mc.player.getAbilities().instabuild) return;
 
         int slot = 36; // Hotbar slot 0 (off screen, won't affect player's visible items)
 
         for (int i = 0; i < amount.get(); i++) {
             // Set slot to bread stack via creative packet
-            mc.player.networkHandler.sendPacket(
-                new CreativeInventoryActionC2SPacket(slot, new ItemStack(Items.BREAD, stackSize.get()))
+            mc.player.connection.send(
+                new ServerboundSetCreativeModeSlotPacket(slot, new ItemStack(Items.BREAD, stackSize.get()))
             );
 
             // Drop the item from that slot
-            mc.player.networkHandler.sendPacket(
-                new PlayerActionC2SPacket(
-                    PlayerActionC2SPacket.Action.DROP_ALL_ITEMS,
-                    BlockPos.ORIGIN,
+            mc.player.connection.send(
+                new ServerboundPlayerActionPacket(
+                    ServerboundPlayerActionPacket.Action.DROP_ALL_ITEMS,
+                    BlockPos.ZERO,
                     Direction.DOWN
                 )
             );

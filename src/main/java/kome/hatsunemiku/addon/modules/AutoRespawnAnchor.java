@@ -9,17 +9,18 @@ import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.player.Rotations;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.RespawnAnchorBlock;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Items;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.RespawnAnchorBlock;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -209,7 +210,7 @@ public class AutoRespawnAnchor extends Module {
 
     @EventHandler
     private void onTick(TickEvent.Pre event) {
-        if (mc.player == null || mc.world == null) return;
+        if (mc.player == null || mc.level == null) return;
 
         // Update timers
         if (placeTimer > 0) placeTimer--;
@@ -227,7 +228,7 @@ public class AutoRespawnAnchor extends Module {
 
     private void manualMode() {
         // Find nearby anchors and auto charge/detonate them
-        Vec3d playerPos = new Vec3d(mc.player.getX(), mc.player.getY(), mc.player.getZ());
+        Vec3 playerPos = new Vec3(mc.player.getX(), mc.player.getY(), mc.player.getZ());
 
         // Priority 1: Detonate charged anchors
         if (detonate.get() && detonateTimer == 0) {
@@ -252,7 +253,7 @@ public class AutoRespawnAnchor extends Module {
 
     private void autoMode() {
         // Find target
-        PlayerEntity target = findTarget();
+        Player target = findTarget();
         if (target == null) return;
 
         // Priority 1: Detonate charged anchors
@@ -285,17 +286,17 @@ public class AutoRespawnAnchor extends Module {
         }
     }
 
-    private PlayerEntity findTarget() {
+    private Player findTarget() {
         if (!targetPlayers.get()) return null;
 
-        PlayerEntity target = null;
+        Player target = null;
         double closestDist = targetRange.get();
 
-        for (Entity entity : mc.world.getEntities()) {
-            if (!(entity instanceof PlayerEntity)) continue;
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (!(entity instanceof Player)) continue;
             if (entity == mc.player) continue;
 
-            PlayerEntity player = (PlayerEntity) entity;
+            Player player = (Player) entity;
 
             if (ignoreFriends.get() && player.getName().getString().equals("Friend")) {
                 continue;
@@ -311,11 +312,11 @@ public class AutoRespawnAnchor extends Module {
         return target;
     }
 
-    private BlockPos findPlacePosition(PlayerEntity target) {
+    private BlockPos findPlacePosition(Player target) {
         if (target == null) return null;
 
-        BlockPos targetPos = target.getBlockPos();
-        Vec3d playerPos = new Vec3d(mc.player.getX(), mc.player.getY(), mc.player.getZ());
+        BlockPos targetPos = target.blockPosition();
+        Vec3 playerPos = new Vec3(mc.player.getX(), mc.player.getY(), mc.player.getZ());
 
         BlockPos best = null;
         double bestScore = 0;
@@ -323,13 +324,13 @@ public class AutoRespawnAnchor extends Module {
         for (int x = -4; x <= 4; x++) {
             for (int y = -2; y <= 2; y++) {
                 for (int z = -4; z <= 4; z++) {
-                    BlockPos pos = targetPos.add(x, y, z);
+                    BlockPos pos = targetPos.offset(x, y, z);
 
                     if (canPlaceAnchor(pos)) {
-                        double dist = playerPos.distanceTo(Vec3d.ofCenter(pos));
+                        double dist = playerPos.distanceTo(Vec3.atCenterOf(pos));
                         if (dist <= placeRange.get()) {
-                            Vec3d targetVec = new Vec3d(target.getX(), target.getY(), target.getZ());
-                            double targetDist = targetVec.distanceTo(Vec3d.ofCenter(pos));
+                            Vec3 targetVec = new Vec3(target.getX(), target.getY(), target.getZ());
+                            double targetDist = targetVec.distanceTo(Vec3.atCenterOf(pos));
                             double score = 1.0 / (targetDist + 1);
 
                             if (score > bestScore) {
@@ -345,22 +346,22 @@ public class AutoRespawnAnchor extends Module {
         return best;
     }
 
-    private BlockPos findUnchargedAnchor(PlayerEntity target) {
-        if (target == null || mc.world == null) return null;
+    private BlockPos findUnchargedAnchor(Player target) {
+        if (target == null || mc.level == null) return null;
 
-        BlockPos targetPos = target.getBlockPos();
-        Vec3d playerPos = new Vec3d(mc.player.getX(), mc.player.getY(), mc.player.getZ());
+        BlockPos targetPos = target.blockPosition();
+        Vec3 playerPos = new Vec3(mc.player.getX(), mc.player.getY(), mc.player.getZ());
 
         for (int x = -6; x <= 6; x++) {
             for (int y = -3; y <= 3; y++) {
                 for (int z = -6; z <= 6; z++) {
-                    BlockPos pos = targetPos.add(x, y, z);
-                    double dist = playerPos.distanceTo(Vec3d.ofCenter(pos));
+                    BlockPos pos = targetPos.offset(x, y, z);
+                    double dist = playerPos.distanceTo(Vec3.atCenterOf(pos));
 
                     if (dist <= placeRange.get()) {
-                        Block block = mc.world.getBlockState(pos).getBlock();
+                        Block block = mc.level.getBlockState(pos).getBlock();
                         if (block == Blocks.RESPAWN_ANCHOR) {
-                            int charges = mc.world.getBlockState(pos).get(RespawnAnchorBlock.CHARGES);
+                            int charges = mc.level.getBlockState(pos).getValue(BlockStateProperties.RESPAWN_ANCHOR_CHARGES);
                             if (charges < chargeLevel.get()) {
                                 return pos;
                             }
@@ -373,22 +374,22 @@ public class AutoRespawnAnchor extends Module {
         return null;
     }
 
-    private BlockPos findChargedAnchor(PlayerEntity target) {
-        if (target == null || mc.world == null) return null;
+    private BlockPos findChargedAnchor(Player target) {
+        if (target == null || mc.level == null) return null;
 
-        BlockPos targetPos = target.getBlockPos();
-        Vec3d playerPos = new Vec3d(mc.player.getX(), mc.player.getY(), mc.player.getZ());
+        BlockPos targetPos = target.blockPosition();
+        Vec3 playerPos = new Vec3(mc.player.getX(), mc.player.getY(), mc.player.getZ());
 
         for (int x = -6; x <= 6; x++) {
             for (int y = -3; y <= 3; y++) {
                 for (int z = -6; z <= 6; z++) {
-                    BlockPos pos = targetPos.add(x, y, z);
-                    double dist = playerPos.distanceTo(Vec3d.ofCenter(pos));
+                    BlockPos pos = targetPos.offset(x, y, z);
+                    double dist = playerPos.distanceTo(Vec3.atCenterOf(pos));
 
                     if (dist <= placeRange.get()) {
-                        Block block = mc.world.getBlockState(pos).getBlock();
+                        Block block = mc.level.getBlockState(pos).getBlock();
                         if (block == Blocks.RESPAWN_ANCHOR) {
-                            int charges = mc.world.getBlockState(pos).get(RespawnAnchorBlock.CHARGES);
+                            int charges = mc.level.getBlockState(pos).getValue(BlockStateProperties.RESPAWN_ANCHOR_CHARGES);
                             if (charges >= chargeLevel.get()) {
                                 // Check anti-suicide
                                 if (antiSuicide.get()) {
@@ -409,15 +410,15 @@ public class AutoRespawnAnchor extends Module {
     }
 
     private boolean canPlaceAnchor(BlockPos pos) {
-        if (mc.world == null) return false;
+        if (mc.level == null) return false;
 
         // Check if block is replaceable
-        if (!mc.world.getBlockState(pos).isReplaceable()) {
+        if (!mc.level.getBlockState(pos).canBeReplaced()) {
             return false;
         }
 
         // Check if there's a solid block below
-        if (!mc.world.getBlockState(pos.down()).isSolidBlock(mc.world, pos.down())) {
+        if (!mc.level.getBlockState(pos.below()).isSolidRender()) {
             return false;
         }
 
@@ -425,7 +426,7 @@ public class AutoRespawnAnchor extends Module {
     }
 
     private void placeAnchor(BlockPos pos) {
-        if (mc.player == null || mc.interactionManager == null) return;
+        if (mc.player == null || mc.gameMode == null) return;
 
         // Switch to anchor
         if (autoSwitch.get()) {
@@ -434,7 +435,7 @@ public class AutoRespawnAnchor extends Module {
 
             if (previousSlot == -1) {
                 for (int i = 0; i < 9; i++) {
-                    if (mc.player.getInventory().getStack(i) == mc.player.getMainHandStack()) {
+                    if (mc.player.getInventory().getItem(i) == mc.player.getMainHandItem()) {
                         previousSlot = i;
                         break;
                     }
@@ -446,18 +447,18 @@ public class AutoRespawnAnchor extends Module {
 
         // Rotate if needed
         if (rotate.get()) {
-            Vec3d hitVec = Vec3d.ofCenter(pos);
+            Vec3 hitVec = Vec3.atCenterOf(pos);
             Rotations.rotate(Rotations.getYaw(hitVec), Rotations.getPitch(hitVec));
         }
 
         // Place anchor
-        Vec3d hitVec = Vec3d.ofCenter(pos);
+        Vec3 hitVec = Vec3.atCenterOf(pos);
         BlockHitResult hitResult = new BlockHitResult(hitVec, Direction.UP, pos, false);
-        mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hitResult);
+        mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hitResult);
     }
 
     private void chargeAnchor(BlockPos pos) {
-        if (mc.player == null || mc.interactionManager == null) return;
+        if (mc.player == null || mc.gameMode == null) return;
 
         // Switch to glowstone
         if (autoSwitch.get()) {
@@ -469,35 +470,35 @@ public class AutoRespawnAnchor extends Module {
 
         // Rotate if needed
         if (rotate.get()) {
-            Vec3d hitVec = Vec3d.ofCenter(pos);
+            Vec3 hitVec = Vec3.atCenterOf(pos);
             Rotations.rotate(Rotations.getYaw(hitVec), Rotations.getPitch(hitVec));
         }
 
         // Charge anchor
-        Vec3d hitVec = Vec3d.ofCenter(pos);
+        Vec3 hitVec = Vec3.atCenterOf(pos);
         BlockHitResult hitResult = new BlockHitResult(hitVec, Direction.UP, pos, false);
-        mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hitResult);
+        mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hitResult);
     }
 
     private void detonateAnchor(BlockPos pos) {
-        if (mc.player == null || mc.interactionManager == null) return;
+        if (mc.player == null || mc.gameMode == null) return;
 
         // Rotate if needed
         if (rotate.get()) {
-            Vec3d hitVec = Vec3d.ofCenter(pos);
+            Vec3 hitVec = Vec3.atCenterOf(pos);
             Rotations.rotate(Rotations.getYaw(hitVec), Rotations.getPitch(hitVec));
         }
 
         // Detonate anchor (right click with empty hand or any item)
-        Vec3d hitVec = Vec3d.ofCenter(pos);
+        Vec3 hitVec = Vec3.atCenterOf(pos);
         BlockHitResult hitResult = new BlockHitResult(hitVec, Direction.UP, pos, false);
-        mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hitResult);
+        mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hitResult);
     }
 
     private double calculateAnchorDamage(BlockPos pos) {
         // Simple damage calculation for respawn anchor
-        Vec3d playerPos = new Vec3d(mc.player.getX(), mc.player.getY(), mc.player.getZ());
-        double distance = playerPos.distanceTo(Vec3d.ofCenter(pos));
+        Vec3 playerPos = new Vec3(mc.player.getX(), mc.player.getY(), mc.player.getZ());
+        double distance = playerPos.distanceTo(Vec3.atCenterOf(pos));
         if (distance > 10) return 0;
 
         // Respawn anchor does significant damage
@@ -505,21 +506,21 @@ public class AutoRespawnAnchor extends Module {
         return Math.max(0, damage);
     }
 
-    private BlockPos findNearbyUnchargedAnchor(Vec3d playerPos) {
-        if (mc.world == null) return null;
+    private BlockPos findNearbyUnchargedAnchor(Vec3 playerPos) {
+        if (mc.level == null) return null;
 
         BlockPos playerBlockPos = new BlockPos((int)playerPos.x, (int)playerPos.y, (int)playerPos.z);
 
         for (int x = -6; x <= 6; x++) {
             for (int y = -3; y <= 3; y++) {
                 for (int z = -6; z <= 6; z++) {
-                    BlockPos pos = playerBlockPos.add(x, y, z);
-                    double dist = playerPos.distanceTo(Vec3d.ofCenter(pos));
+                    BlockPos pos = playerBlockPos.offset(x, y, z);
+                    double dist = playerPos.distanceTo(Vec3.atCenterOf(pos));
 
                     if (dist <= placeRange.get()) {
-                        Block block = mc.world.getBlockState(pos).getBlock();
+                        Block block = mc.level.getBlockState(pos).getBlock();
                         if (block == Blocks.RESPAWN_ANCHOR) {
-                            int charges = mc.world.getBlockState(pos).get(RespawnAnchorBlock.CHARGES);
+                            int charges = mc.level.getBlockState(pos).getValue(BlockStateProperties.RESPAWN_ANCHOR_CHARGES);
                             if (charges < chargeLevel.get()) {
                                 return pos;
                             }
@@ -532,21 +533,21 @@ public class AutoRespawnAnchor extends Module {
         return null;
     }
 
-    private BlockPos findNearbyChargedAnchor(Vec3d playerPos) {
-        if (mc.world == null) return null;
+    private BlockPos findNearbyChargedAnchor(Vec3 playerPos) {
+        if (mc.level == null) return null;
 
         BlockPos playerBlockPos = new BlockPos((int)playerPos.x, (int)playerPos.y, (int)playerPos.z);
 
         for (int x = -6; x <= 6; x++) {
             for (int y = -3; y <= 3; y++) {
                 for (int z = -6; z <= 6; z++) {
-                    BlockPos pos = playerBlockPos.add(x, y, z);
-                    double dist = playerPos.distanceTo(Vec3d.ofCenter(pos));
+                    BlockPos pos = playerBlockPos.offset(x, y, z);
+                    double dist = playerPos.distanceTo(Vec3.atCenterOf(pos));
 
                     if (dist <= placeRange.get()) {
-                        Block block = mc.world.getBlockState(pos).getBlock();
+                        Block block = mc.level.getBlockState(pos).getBlock();
                         if (block == Blocks.RESPAWN_ANCHOR) {
-                            int charges = mc.world.getBlockState(pos).get(RespawnAnchorBlock.CHARGES);
+                            int charges = mc.level.getBlockState(pos).getValue(BlockStateProperties.RESPAWN_ANCHOR_CHARGES);
                             if (charges >= chargeLevel.get()) {
                                 // Check anti-suicide
                                 if (antiSuicide.get()) {

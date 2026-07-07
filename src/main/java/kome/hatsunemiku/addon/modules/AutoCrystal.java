@@ -9,17 +9,17 @@ import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.player.Rotations;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.decoration.EndCrystalEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Items;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -183,18 +183,18 @@ public class AutoCrystal extends Module {
 
     @EventHandler
     private void onTick(TickEvent.Pre event) {
-        if (mc.player == null || mc.world == null) return;
+        if (mc.player == null || mc.level == null) return;
 
         // Update timers
         if (placeTimer > 0) placeTimer--;
         if (breakTimer > 0) breakTimer--;
 
         // Find target
-        PlayerEntity target = findTarget();
+        Player target = findTarget();
 
         // Break crystals first (higher priority)
         if (breakCrystal.get() && breakTimer == 0) {
-            EndCrystalEntity crystal = findCrystal();
+            EndCrystal crystal = findCrystal();
             if (crystal != null) {
                 breakCrystalEntity(crystal);
                 breakTimer = breakDelay.get();
@@ -212,17 +212,17 @@ public class AutoCrystal extends Module {
         }
     }
 
-    private PlayerEntity findTarget() {
+    private Player findTarget() {
         if (!targetPlayers.get()) return null;
 
-        PlayerEntity target = null;
+        Player target = null;
         double closestDist = targetRange.get();
 
-        for (Entity entity : mc.world.getEntities()) {
-            if (!(entity instanceof PlayerEntity)) continue;
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (!(entity instanceof Player)) continue;
             if (entity == mc.player) continue;
 
-            PlayerEntity player = (PlayerEntity) entity;
+            Player player = (Player) entity;
 
             // Check if friend
             if (ignoreFriends.get() && player.getName().getString().equals("Friend")) {
@@ -240,20 +240,20 @@ public class AutoCrystal extends Module {
         return target;
     }
 
-    private EndCrystalEntity findCrystal() {
-        EndCrystalEntity closest = null;
+    private EndCrystal findCrystal() {
+        EndCrystal closest = null;
         double closestDist = breakRange.get();
 
-        for (Entity entity : mc.world.getEntities()) {
-            if (!(entity instanceof EndCrystalEntity)) continue;
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (!(entity instanceof EndCrystal)) continue;
 
-            EndCrystalEntity crystal = (EndCrystalEntity) entity;
+            EndCrystal crystal = (EndCrystal) entity;
             double dist = mc.player.distanceTo(crystal);
 
             if (dist < closestDist) {
                 // Check anti-suicide
                 if (antiSuicide.get()) {
-                    Vec3d crystalPos = new Vec3d(crystal.getX(), crystal.getY(), crystal.getZ());
+                    Vec3 crystalPos = new Vec3(crystal.getX(), crystal.getY(), crystal.getZ());
                     double damage = calculateDamage(crystalPos);
                     if (mc.player.getHealth() - damage < minHealth.get()) {
                         continue;
@@ -268,21 +268,21 @@ public class AutoCrystal extends Module {
         return closest;
     }
 
-    private BlockPos findPlacePosition(PlayerEntity target) {
+    private BlockPos findPlacePosition(Player target) {
         if (target == null) return null;
 
         List<BlockPos> positions = new ArrayList<>();
-        BlockPos targetPos = target.getBlockPos();
+        BlockPos targetPos = target.blockPosition();
 
         // Check positions around target
         for (int x = -3; x <= 3; x++) {
             for (int y = -2; y <= 2; y++) {
                 for (int z = -3; z <= 3; z++) {
-                    BlockPos pos = targetPos.add(x, y, z);
+                    BlockPos pos = targetPos.offset(x, y, z);
 
                     if (canPlaceCrystal(pos)) {
-                        Vec3d playerPos = new Vec3d(mc.player.getX(), mc.player.getY(), mc.player.getZ());
-                        double dist = playerPos.distanceTo(Vec3d.ofCenter(pos));
+                        Vec3 playerPos = new Vec3(mc.player.getX(), mc.player.getY(), mc.player.getZ());
+                        double dist = playerPos.distanceTo(Vec3.atCenterOf(pos));
                         if (dist <= placeRange.get()) {
                             positions.add(pos);
                         }
@@ -296,8 +296,8 @@ public class AutoCrystal extends Module {
         double bestScore = 0;
 
         for (BlockPos pos : positions) {
-            Vec3d targetPos2 = new Vec3d(target.getX(), target.getY(), target.getZ());
-            double targetDist = targetPos2.distanceTo(Vec3d.ofCenter(pos.up()));
+            Vec3 targetPos2 = new Vec3(target.getX(), target.getY(), target.getZ());
+            double targetDist = targetPos2.distanceTo(Vec3.atCenterOf(pos.above()));
             double score = 1.0 / (targetDist + 1);
 
             if (score > bestScore) {
@@ -310,28 +310,28 @@ public class AutoCrystal extends Module {
     }
 
     private boolean canPlaceCrystal(BlockPos pos) {
-        if (mc.world == null) return false;
+        if (mc.level == null) return false;
 
         // Check if block is obsidian or bedrock
         if (onlyObsidian.get()) {
-            if (mc.world.getBlockState(pos).getBlock() != Blocks.OBSIDIAN &&
-                mc.world.getBlockState(pos).getBlock() != Blocks.BEDROCK) {
+            if (mc.level.getBlockState(pos).getBlock() != Blocks.OBSIDIAN &&
+                mc.level.getBlockState(pos).getBlock() != Blocks.BEDROCK) {
                 return false;
             }
         }
 
         // Check if space above is clear
-        BlockPos above = pos.up();
-        BlockPos above2 = pos.up(2);
+        BlockPos above = pos.above();
+        BlockPos above2 = pos.above(2);
 
-        if (!mc.world.getBlockState(above).isAir() || !mc.world.getBlockState(above2).isAir()) {
+        if (!mc.level.getBlockState(above).isAir() || !mc.level.getBlockState(above2).isAir()) {
             return false;
         }
 
         // Check if there's already a crystal
-        Box box = new Box(above);
-        for (Entity entity : mc.world.getEntities()) {
-            if (entity instanceof EndCrystalEntity && entity.getBoundingBox().intersects(box)) {
+        AABB box = new AABB(above);
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (entity instanceof EndCrystal && entity.getBoundingBox().intersects(box)) {
                 return false;
             }
         }
@@ -340,7 +340,7 @@ public class AutoCrystal extends Module {
     }
 
     private void placeCrystalAt(BlockPos pos) {
-        if (mc.player == null || mc.interactionManager == null) return;
+        if (mc.player == null || mc.gameMode == null) return;
 
         // Switch to crystal
         if (autoSwitch.get()) {
@@ -349,7 +349,7 @@ public class AutoCrystal extends Module {
 
             if (previousSlot == -1) {
                 for (int i = 0; i < 9; i++) {
-                    if (mc.player.getInventory().getStack(i) == mc.player.getMainHandStack()) {
+                    if (mc.player.getInventory().getItem(i) == mc.player.getMainHandItem()) {
                         previousSlot = i;
                         break;
                     }
@@ -361,33 +361,33 @@ public class AutoCrystal extends Module {
 
         // Rotate if needed
         if (rotate.get()) {
-            Vec3d hitVec = Vec3d.ofCenter(pos).add(0, 1, 0);
+            Vec3 hitVec = Vec3.atCenterOf(pos).add(0, 1, 0);
             Rotations.rotate(Rotations.getYaw(hitVec), Rotations.getPitch(hitVec));
         }
 
         // Place crystal
-        Vec3d hitVec = new Vec3d(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
+        Vec3 hitVec = new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
         BlockHitResult hitResult = new BlockHitResult(hitVec, Direction.UP, pos, false);
-        mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hitResult);
+        mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hitResult);
     }
 
-    private void breakCrystalEntity(EndCrystalEntity crystal) {
-        if (mc.player == null || mc.interactionManager == null) return;
+    private void breakCrystalEntity(EndCrystal crystal) {
+        if (mc.player == null || mc.gameMode == null) return;
 
         // Rotate if needed
         if (rotate.get()) {
-            Vec3d pos = new Vec3d(crystal.getX(), crystal.getY(), crystal.getZ());
+            Vec3 pos = new Vec3(crystal.getX(), crystal.getY(), crystal.getZ());
             Rotations.rotate(Rotations.getYaw(pos), Rotations.getPitch(pos));
         }
 
         // Attack crystal
-        mc.interactionManager.attackEntity(mc.player, crystal);
-        mc.player.swingHand(Hand.MAIN_HAND);
+        mc.gameMode.attack(mc.player, crystal);
+        mc.player.swing(InteractionHand.MAIN_HAND);
     }
 
-    private double calculateDamage(Vec3d pos) {
+    private double calculateDamage(Vec3 pos) {
         // Simple damage calculation (can be improved)
-        Vec3d playerPos = new Vec3d(mc.player.getX(), mc.player.getY(), mc.player.getZ());
+        Vec3 playerPos = new Vec3(mc.player.getX(), mc.player.getY(), mc.player.getZ());
         double distance = playerPos.distanceTo(pos);
         if (distance > 12) return 0;
 

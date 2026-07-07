@@ -6,9 +6,9 @@ import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.friends.Friends;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
 
 public class SmoothAim extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -65,23 +65,23 @@ public class SmoothAim extends Module {
 
     @EventHandler
     private void onTick(TickEvent.Pre event) {
-        if (mc.player == null || mc.world == null) return;
+        if (mc.player == null || mc.level == null) return;
 
-        PlayerEntity target = findTarget();
+        Player target = findTarget();
         if (target == null) return;
 
-        Vec3d targetPos = aimHead.get()
-            ? new Vec3d(target.getX(), target.getEyeY(), target.getZ())
-            : new Vec3d(target.getX(), target.getY() + target.getHeight() / 2.0, target.getZ());
+        Vec3 targetPos = aimHead.get()
+            ? new Vec3(target.getX(), target.getEyeY(), target.getZ())
+            : new Vec3(target.getX(), target.getY() + target.getBbHeight() / 2.0, target.getZ());
 
-        Vec3d diff = targetPos.subtract(mc.player.getEyePos());
+        Vec3 diff = targetPos.subtract(mc.player.getEyePosition());
 
         float targetYaw   = (float) Math.toDegrees(Math.atan2(-diff.x, diff.z));
         double hDist      = Math.sqrt(diff.x * diff.x + diff.z * diff.z);
         float targetPitch = (float) Math.toDegrees(-Math.atan2(diff.y, hDist));
 
-        float currentYaw   = mc.player.getYaw();
-        float currentPitch = mc.player.getPitch();
+        float currentYaw   = mc.player.getYRot();
+        float currentPitch = mc.player.getXRot();
 
         float deltaYaw   = wrapDegrees(targetYaw   - currentYaw);
         float deltaPitch = wrapDegrees(targetPitch - currentPitch);
@@ -89,23 +89,23 @@ public class SmoothAim extends Module {
         float speed = rotateSpeed.get().floatValue();
 
         // Move FIXED degrees per tick — delta is constant, Vulcan won't flag
-        float moveYaw   = MathHelper.clamp(deltaYaw,   -speed, speed);
-        float movePitch = MathHelper.clamp(deltaPitch, -speed, speed);
+        float moveYaw   = Mth.clamp(deltaYaw,   -speed, speed);
+        float movePitch = Mth.clamp(deltaPitch, -speed, speed);
 
         // Stop jittering when already close enough
         if (Math.abs(deltaYaw)   < 0.1f) moveYaw   = 0f;
         if (Math.abs(deltaPitch) < 0.1f) movePitch = 0f;
 
-        mc.player.setYaw(currentYaw + moveYaw);
-        mc.player.setPitch(MathHelper.clamp(currentPitch + movePitch, -90f, 90f));
+        mc.player.setYRot(currentYaw + moveYaw);
+        mc.player.setXRot(Mth.clamp(currentPitch + movePitch, -90f, 90f));
     }
 
-    private PlayerEntity findTarget() {
-        PlayerEntity best = null;
+    private Player findTarget() {
+        Player best = null;
         double bestAngle = fovCheck.get();
 
-        for (var entity : mc.world.getEntities()) {
-            if (!(entity instanceof PlayerEntity player)) continue;
+        for (var entity : mc.level.entitiesForRendering()) {
+            if (!(entity instanceof Player player)) continue;
             if (player == mc.player) continue;
             if (ignoreFriends.get() && Friends.get().isFriend(player)) continue;
             if (mc.player.distanceTo(player) > range.get()) continue;
@@ -120,16 +120,16 @@ public class SmoothAim extends Module {
         return best;
     }
 
-    private double getAngleTo(PlayerEntity target) {
-        Vec3d diff = new Vec3d(target.getX(), target.getEyeY(), target.getZ())
-            .subtract(mc.player.getEyePos()).normalize();
+    private double getAngleTo(Player target) {
+        Vec3 diff = new Vec3(target.getX(), target.getEyeY(), target.getZ())
+            .subtract(mc.player.getEyePosition()).normalize();
 
         double tYaw   = Math.toDegrees(Math.atan2(-diff.x, diff.z));
         double hDist  = Math.sqrt(diff.x * diff.x + diff.z * diff.z);
         double tPitch = Math.toDegrees(-Math.atan2(diff.y, hDist));
 
-        double dy = Math.abs(wrapDegrees(tYaw   - mc.player.getYaw()));
-        double dp = Math.abs(wrapDegrees(tPitch - mc.player.getPitch()));
+        double dy = Math.abs(wrapDegrees(tYaw   - mc.player.getYRot()));
+        double dp = Math.abs(wrapDegrees(tPitch - mc.player.getXRot()));
         return Math.sqrt(dy * dy + dp * dp);
     }
 
