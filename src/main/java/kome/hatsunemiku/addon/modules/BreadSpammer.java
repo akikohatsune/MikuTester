@@ -5,9 +5,9 @@ import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.item.Items;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.CreativeInventoryActionC2SPacket;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket;
 
 public class BreadSpammer extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -36,15 +36,15 @@ public class BreadSpammer extends Module {
 
     @EventHandler
     private void onTick(TickEvent.Pre event) {
-        if (mc.player == null || mc.world == null) return;
-        if (onlyCreative.get() && !mc.player.getAbilities().creativeMode) return;
+        if (mc.player == null || mc.level == null) return;
+        if (onlyCreative.get() && !mc.player.getAbilities().instabuild) return;
 
         // Stack size 64 = max per packet, 1 packet/tick = max server allows
         ItemStack bread = new ItemStack(Items.BREAD, 64);
 
         for (int i = 0; i < packetsPerTick.get(); i++) {
-            mc.player.networkHandler.sendPacket(
-                new CreativeInventoryActionC2SPacket(-1, bread)
+            mc.player.connection.send(
+                new ServerboundSetCreativeModeSlotPacket(-1, bread)
             );
         }
     }
