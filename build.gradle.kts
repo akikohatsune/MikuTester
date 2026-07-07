@@ -1,11 +1,11 @@
 plugins {
-    id("fabric-loom") version "1.16.1"
+    alias(libs.plugins.fabric.loom)
     id("com.diffplug.spotless") version "8.0.0"
 }
 
 base {
     archivesName = properties["archives_base_name"] as String
-    version = properties["mod_version"] as String
+    version = libs.versions.mod.version.get()
     group = properties["maven_group"] as String
 }
 
@@ -21,31 +21,19 @@ repositories {
 }
 
 dependencies {
-    val mcVersion = properties["minecraft_version"] as String
-    val loaderVersion = if (project.hasProperty("loader_version")) properties["loader_version"] as String else "0.17.3"
-
-    // Minecraft
-    minecraft("com.mojang:minecraft:$mcVersion")
-    
-    // Mappings
-    if (project.hasProperty("use_mojang_mappings")) {
-        mappings(loom.officialMojangMappings())
-    } else {
-        mappings("net.fabricmc:yarn:${properties["yarn_mappings"] as String}:v2")
-    }
-    
-    // Loader
-    modImplementation("net.fabricmc:fabric-loader:$loaderVersion")
+    // Fabric
+    minecraft(libs.minecraft)
+    implementation(libs.fabric.loader)
 
     // Meteor
-    modImplementation("meteordevelopment:meteor-client:${mcVersion}-SNAPSHOT")
+    implementation(libs.meteor.client)
 }
 
 tasks {
     processResources {
         val propertyMap = mapOf(
             "version" to project.version,
-            "mc_version" to project.property("minecraft_version"),
+            "mc_version" to libs.versions.minecraft.get(),
         )
 
         inputs.properties(propertyMap)
@@ -65,24 +53,16 @@ tasks {
         }
     }
 
-    java {
-        val javaVersion = if (project.hasProperty("java_version")) JavaVersion.toVersion(project.property("java_version")!!) else JavaVersion.VERSION_21
-        sourceCompatibility = javaVersion
-        targetCompatibility = javaVersion
-    }
-
     withType<JavaCompile> {
         options.encoding = "UTF-8"
-        val javaRelease = if (project.hasProperty("java_version")) (project.property("java_version") as String).toInt() else 21
-        options.release.set(javaRelease)
+        options.release.set(libs.versions.jdk.get().toInt())
         options.compilerArgs.add("-Xlint:deprecation")
         options.compilerArgs.add("-Xlint:unchecked")
     }
-
 }
+
 java {
     toolchain {
-        val javaVersion = if (project.hasProperty("java_version")) JavaLanguageVersion.of(project.property("java_version") as String) else JavaLanguageVersion.of(21)
-        languageVersion.set(javaVersion)
+        languageVersion.set(JavaLanguageVersion.of(libs.versions.jdk.get().toInt()))
     }
 }
