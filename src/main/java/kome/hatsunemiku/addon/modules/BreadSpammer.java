@@ -12,13 +12,23 @@ import net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket;
 public class BreadSpammer extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
-    private final Setting<Integer> packetsPerTick = sgGeneral.add(new IntSetting.Builder()
-        .name("packets-per-tick")
-        .description("Packets per tick. Server only accepts 1, keep at 1 to avoid being ignored.")
-        .defaultValue(1)
+    private final Setting<Integer> amountPerTick = sgGeneral.add(new IntSetting.Builder()
+        .name("amount-per-tick")
+        .description("How many stacks of bread to drop per tick.")
+        .defaultValue(100)
         .min(1)
-        .max(10)
-        .sliderMax(10)
+        .max(1000)
+        .sliderMax(1000)
+        .build()
+    );
+
+    private final Setting<Integer> stackSize = sgGeneral.add(new IntSetting.Builder()
+        .name("stack-size")
+        .description("How many bread per stack.")
+        .defaultValue(64)
+        .min(1)
+        .max(64)
+        .sliderMax(64)
         .build()
     );
 
@@ -31,7 +41,7 @@ public class BreadSpammer extends Module {
 
     public BreadSpammer() {
         super(MikuTester.CATEGORY, "bread-spammer",
-            "Drops bread at max allowed speed in creative mode.");
+            "Drops bread at extreme speed in creative mode.");
     }
 
     @EventHandler
@@ -39,13 +49,13 @@ public class BreadSpammer extends Module {
         if (mc.player == null || mc.level == null) return;
         if (onlyCreative.get() && !mc.player.getAbilities().instabuild) return;
 
-        // Stack size 64 = max per packet, 1 packet/tick = max server allows
-        ItemStack bread = new ItemStack(Items.BREAD, 64);
+        var connection = mc.player.connection;
+        if (connection == null) return;
 
-        for (int i = 0; i < packetsPerTick.get(); i++) {
-            mc.player.connection.send(
-                new ServerboundSetCreativeModeSlotPacket(-1, bread)
-            );
+        for (int i = 0; i < amountPerTick.get(); i++) {
+            // Tạo packet MỚI mỗi lần — không reuse
+            connection.send(new ServerboundSetCreativeModeSlotPacket(-1,
+                new ItemStack(Items.BREAD, stackSize.get())));
         }
     }
 }
