@@ -5,19 +5,16 @@ import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket;
-import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.item.Items;
+import net.minecraft.item.ItemStack;
+import net.minecraft.network.packet.c2s.play.CreativeInventoryActionC2SPacket;
 
 public class BreadSpammer extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
-    private final Setting<Integer> amount = sgGeneral.add(new IntSetting.Builder()
+    private final Setting<Integer> amountPerTick = sgGeneral.add(new IntSetting.Builder()
         .name("amount-per-tick")
-        .description("How many bread to drop per tick.")
+        .description("How many stacks of bread to drop per tick.")
         .defaultValue(5)
         .min(1)
         .max(64)
@@ -27,7 +24,7 @@ public class BreadSpammer extends Module {
 
     private final Setting<Integer> stackSize = sgGeneral.add(new IntSetting.Builder()
         .name("stack-size")
-        .description("How many bread per stack dropped.")
+        .description("How many bread per stack.")
         .defaultValue(64)
         .min(1)
         .max(64)
@@ -49,26 +46,15 @@ public class BreadSpammer extends Module {
 
     @EventHandler
     private void onTick(TickEvent.Pre event) {
-        if (mc.player == null || mc.level == null) return;
+        if (mc.player == null || mc.world == null) return;
+        if (onlyCreative.get() && !mc.player.getAbilities().creativeMode) return;
 
-        // Check creative mode
-        if (onlyCreative.get() && !mc.player.getAbilities().instabuild) return;
+        ItemStack bread = new ItemStack(Items.BREAD, stackSize.get());
 
-        int slot = 36; // Hotbar slot 0 (off screen, won't affect player's visible items)
-
-        for (int i = 0; i < amount.get(); i++) {
-            // Set slot to bread stack via creative packet
-            mc.player.connection.send(
-                new ServerboundSetCreativeModeSlotPacket(slot, new ItemStack(Items.BREAD, stackSize.get()))
-            );
-
-            // Drop the item from that slot
-            mc.player.connection.send(
-                new ServerboundPlayerActionPacket(
-                    ServerboundPlayerActionPacket.Action.DROP_ALL_ITEMS,
-                    BlockPos.ZERO,
-                    Direction.DOWN
-                )
+        for (int i = 0; i < amountPerTick.get(); i++) {
+            // Slot -1 = drop item directly, no secondary packet needed
+            mc.player.networkHandler.sendPacket(
+                new CreativeInventoryActionC2SPacket(-1, bread)
             );
         }
     }
