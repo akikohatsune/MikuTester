@@ -5,30 +5,20 @@ import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket;
+import net.minecraft.item.Items;
+import net.minecraft.item.ItemStack;
+import net.minecraft.network.packet.c2s.play.CreativeInventoryActionC2SPacket;
 
 public class BreadSpammer extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
-    private final Setting<Integer> amountPerTick = sgGeneral.add(new IntSetting.Builder()
-        .name("amount-per-tick")
-        .description("How many stacks of bread to drop per tick.")
-        .defaultValue(5)
+    private final Setting<Integer> packetsPerTick = sgGeneral.add(new IntSetting.Builder()
+        .name("packets-per-tick")
+        .description("Packets per tick. Server only accepts 1, keep at 1 to avoid being ignored.")
+        .defaultValue(1)
         .min(1)
-        .max(64)
-        .sliderMax(64)
-        .build()
-    );
-
-    private final Setting<Integer> stackSize = sgGeneral.add(new IntSetting.Builder()
-        .name("stack-size")
-        .description("How many bread per stack.")
-        .defaultValue(64)
-        .min(1)
-        .max(64)
-        .sliderMax(64)
+        .max(10)
+        .sliderMax(10)
         .build()
     );
 
@@ -41,20 +31,20 @@ public class BreadSpammer extends Module {
 
     public BreadSpammer() {
         super(MikuTester.CATEGORY, "bread-spammer",
-            "Drops bread at extreme speed in creative mode.");
+            "Drops bread at max allowed speed in creative mode.");
     }
 
     @EventHandler
     private void onTick(TickEvent.Pre event) {
-        if (mc.player == null || mc.level == null) return;
-        if (onlyCreative.get() && !mc.player.getAbilities().instabuild) return;
+        if (mc.player == null || mc.world == null) return;
+        if (onlyCreative.get() && !mc.player.getAbilities().creativeMode) return;
 
-        ItemStack bread = new ItemStack(Items.BREAD, stackSize.get());
+        // Stack size 64 = max per packet, 1 packet/tick = max server allows
+        ItemStack bread = new ItemStack(Items.BREAD, 64);
 
-        for (int i = 0; i < amountPerTick.get(); i++) {
-            // Slot -1 = drop item directly, no secondary packet needed
-            mc.player.connection.send(
-                new ServerboundSetCreativeModeSlotPacket(-1, bread)
+        for (int i = 0; i < packetsPerTick.get(); i++) {
+            mc.player.networkHandler.sendPacket(
+                new CreativeInventoryActionC2SPacket(-1, bread)
             );
         }
     }
